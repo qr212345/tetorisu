@@ -427,7 +427,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderSeats();
   /* ボタンへのイベント付与など既存の bindButtons() を呼び出す */
 
-bindButtons(){
+bindButtons() {
   document.getElementById("btnUndo")?.addEventListener("click", undoAction);
   document.getElementById("btnSaveCSV")?.addEventListener("click", saveToCSV);
   document.getElementById("btnConfirmRanking")?.addEventListener("click", confirmRanking);
@@ -440,7 +440,7 @@ bindButtons(){
   // Drive から読み込み
   document.getElementById("btnLoad")
           ?.addEventListener("click", refresh);
-});
+}
 
 /* ======== window 公開 ======== */
 Object.assign(window, {
