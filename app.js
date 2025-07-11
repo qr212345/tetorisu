@@ -400,6 +400,10 @@ async function store() {
   }
 }
 
+function bindButtons() {
+  // ボタンにイベントを設定する処理をここに書くか、空のままにしておく
+}
+
 /* --- CSV でダウンロード --- */
 function saveToCSV() {
   const rows = [["ID","ニックネーム","レート","前回順位","ボーナス","称号"]];
@@ -434,7 +438,3 @@ Object.assign(window, {
   confirmRanking,
   removePlayer
 });
-
-function bindButtons() {
-  // ボタンにイベントを設定する処理をここに書くか、空のままにしておく
-}
