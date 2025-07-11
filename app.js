@@ -426,7 +426,13 @@ document.addEventListener("DOMContentLoaded", () => {
   loadFromLocalStorage();
   renderSeats();
   /* ボタンへのイベント付与など既存の bindButtons() を呼び出す */
-  bindButtons();
+
+bindButtons(){
+  document.getElementById("btnUndo")?.addEventListener("click", undoAction);
+  document.getElementById("btnSaveCSV")?.addEventListener("click", saveToCSV);
+  document.getElementById("btnConfirmRanking")?.addEventListener("click", confirmRanking);
+  document.getElementById("btnRefresh")?.addEventListener("click", refresh);
+  document.getElementById("btnStore")?.addEventListener("click", store);
 });
 
 /* ======== window 公開 ======== */
