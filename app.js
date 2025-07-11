@@ -433,6 +433,13 @@ bindButtons(){
   document.getElementById("btnConfirmRanking")?.addEventListener("click", confirmRanking);
   document.getElementById("btnRefresh")?.addEventListener("click", refresh);
   document.getElementById("btnStore")?.addEventListener("click", store);
+    // Drive へ保存
+  document.getElementById("btnSave")
+          ?.addEventListener("click", store);
+
+  // Drive から読み込み
+  document.getElementById("btnLoad")
+          ?.addEventListener("click", refresh);
 });
 
 /* ======== window 公開 ======== */
