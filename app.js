@@ -1,0 +1,422 @@
+/**********************
+ *  ババ抜き大会管理  *
+ **********************/
+
+/* ======== 依存ライブラリ ======== */
+import { Html5Qrcode, Html5QrcodeScannerState } from
+  "https://unpkg.com/html5-qrcode@2.3.8?module";
+
+/* ======== 定数 ======== */
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbwckDY2AlG4ItnrqM-7-VkQ6tgPHMTwCZ0JjPW7MfPNWEYgzY3AHTiPn3uNEDQbnD-R/exec";
+const SECRET   = "kosen-brain-super-secret";
+const SCAN_COOLDOWN_MS = 1500;
+
+/* ======== グローバル状態 ======== */
+let currentSeatId   = null;
+let seatMap         = {};      // { table01: [player01, …] }
+let playerData      = {};      // { playerId: {rate,…} }
+let actionHistory   = [];
+
+let qrReader        = null;    // ← ここでグローバル保持して二重起動防止
+let rankingQrReader = null;
+
+let isRankingMode   = false;
+let rankingSeatId   = null;
+
+let lastScanTime    = 0;
+let lastScannedText = "";
+let msgTimer        = null;
+
+/* ======== ユーティリティ ======== */
+const delay = ms => new Promise(res => setTimeout(res, ms));
+
+function displayMessage(msg) {
+  const area = document.getElementById("messageArea");
+  if (!area) return;
+  area.textContent = msg;
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(() => (area.textContent = ""), 3000);
+}
+
+/* ======== QR 読み取りコールバック ======== */
+function handleScanSuccess(decodedText) {
+  const now = Date.now();
+  if (decodedText === lastScannedText && now - lastScanTime < SCAN_COOLDOWN_MS) return;
+  lastScannedText = decodedText;
+  lastScanTime = now;
+
+  if (decodedText.startsWith("table")) {
+    currentSeatId = decodedText;
+    seatMap[currentSeatId] ??= [];
+    displayMessage(`✅ 座席セット: ${currentSeatId}`);
+  } else if (decodedText.startsWith("player")) {
+    if (!currentSeatId)                  { displayMessage("⚠ 先に座席QRを読み込んでください"); return; }
+    if (seatMap[currentSeatId].includes(decodedText)) { displayMessage("⚠ 既に登録済み"); return; }
+    if (seatMap[currentSeatId].length >= 6)           { displayMessage("⚠ この座席は6人まで"); return; }
+
+    seatMap[currentSeatId].push(decodedText);
+    playerData[decodedText] ??= { nickname: decodedText, rate: 50, lastRank: null, bonus: 0 };
+    actionHistory.push({ type: "addPlayer", seatId: currentSeatId, playerId: decodedText });
+    displayMessage(`✅ ${decodedText} 追加`);
+    saveToLocalStorage();
+    renderSeats();
+  }
+
+  handleRankingMode(decodedText);
+}
+
+/* ======== カメラ起動 ======== */
+function initCamera() {
+  // 既にスキャン中なら再起動しない
+  if (qrReader?.getState?.() === Html5QrcodeScannerState.SCANNING) {
+    console.log("QR リーダーは既に起動中です");
+    return;
+  }
+
+  // インスタンス未生成なら作成
+  if (!qrReader) qrReader = new Html5Qrcode("reader");
+
+  qrReader.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    handleScanSuccess
+  ).catch(err => {
+    console.error(err);
+    displayMessage("❌ カメラの起動に失敗しました");
+  });
+}
+
+/* ======== 座席表示 ======== */
+function renderSeats() {
+  const seatList = document.getElementById("seatList");
+  seatList.innerHTML = "";
+
+  Object.keys(seatMap).forEach(seatId => {
+    const block = document.createElement("div");
+    block.className = "seat-block";
+
+    /* --- 見出し --- */
+    const title = document.createElement("h3");
+    title.textContent = `座席: ${seatId}`;
+    const removeSeat = document.createElement("span");
+    removeSeat.textContent = "✖";
+    removeSeat.className = "remove-button";
+    removeSeat.onclick = () => {
+      if (confirm(`座席 ${seatId} を削除しますか？`)) {
+        actionHistory.push({ type: "removeSeat", seatId, players: seatMap[seatId] });
+        delete seatMap[seatId];
+        saveToLocalStorage();
+        renderSeats();
+      }
+    };
+    title.appendChild(removeSeat);
+    block.appendChild(title);
+
+    /* --- プレイヤー --- */
+    seatMap[seatId].forEach(pid => {
+      const p = playerData[pid];
+      const rc = p.bonus ?? 0;
+      block.insertAdjacentHTML("beforeend", `
+        <div class="player-entry">
+          <div>
+            <strong>${pid}</strong>
+            ${p.title ? `<span class="title-badge title-${p.title}">${p.title}</span>` : ""}
+            <span style="margin-left:10px;color:#888;">Rate: ${p.rate}</span>
+            <span class="rate-change ${rc>0?"rate-up":rc<0?"rate-down":"rate-zero"}">
+              ${rc>0?"↑":rc<0?"↓":"±"}${Math.abs(rc)}
+            </span>
+          </div>
+          <span class="remove-button" onclick="removePlayer('${seatId}','${pid}')">✖</span>
+        </div>
+      `);
+    });
+
+    seatList.appendChild(block);
+  });
+}
+
+/* ======== プレイヤー削除・UNDO ======== */
+function removePlayer(seatId, playerId) {
+  const idx = seatMap[seatId]?.indexOf(playerId);
+  if (idx === -1) return;
+  seatMap[seatId].splice(idx, 1);
+  actionHistory.push({ type: "removePlayer", seatId, playerId, index: idx });
+  saveToLocalStorage();
+  renderSeats();
+}
+
+function undoAction() {
+  if (!actionHistory.length) { displayMessage("操作履歴がありません"); return; }
+  const last = actionHistory.pop();
+  switch (last.type) {
+    case "addPlayer":    seatMap[last.seatId] = seatMap[last.seatId].filter(p => p !== last.playerId); break;
+    case "removePlayer": seatMap[last.seatId]?.splice(last.index, 0, last.playerId);                   break;
+    case "removeSeat":   seatMap[last.seatId] = last.players;                                         break;
+  }
+  displayMessage("↩ 元に戻しました");
+  saveToLocalStorage();
+  renderSeats();
+}
+
+/* ======== ローカルストレージ ======== */
+function saveToLocalStorage() {
+  localStorage.setItem("seatMap",    JSON.stringify(seatMap));
+  localStorage.setItem("playerData", JSON.stringify(playerData));
+}
+function loadFromLocalStorage() {
+  seatMap    = JSON.parse(localStorage.getItem("seatMap")    || "{}");
+  playerData = JSON.parse(localStorage.getItem("playerData") || "{}");
+}
+
+/* ======================================================
+ *  画面遷移 & 順位登録     ―  “ランキング” サブ画面の実装
+ * ==================================================== */
+
+/** サイドバー操作でメイン画面を切り替える */
+function navigate(section) {
+  // 表示切替
+  document.getElementById("scanSection"   ).style.display = section === "scan"    ? "block" : "none";
+  document.getElementById("rankingSection").style.display = section === "ranking" ? "block" : "none";
+
+  /* ---- 順位登録モードに入るときだけカメラをもう 1 本起動 ---- */
+  if (section === "ranking") {
+    isRankingMode  = true;
+    rankingSeatId  = null;
+    document.getElementById("rankingList").innerHTML = "";
+    displayMessage("座席QR を読み込んでください（順位登録モード）");
+
+    if (!rankingQrReader) {
+      rankingQrReader = new Html5Qrcode("rankingReader");
+      rankingQrReader.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        decodedText => {
+          if (decodedText.startsWith("table")) {
+            handleRankingMode(decodedText);
+            displayMessage(`✅ 座席 ${decodedText} 読み取り成功`);
+            // 1 座席読めば十分なので即停止
+            rankingQrReader.stop().then(() => {
+              rankingQrReader.clear();
+              rankingQrReader = null;
+            });
+          } else {
+            displayMessage("⚠ 座席コードのみ読み取り可能です");
+          }
+        }
+      ).catch(err => {
+        console.error(err);
+        displayMessage("❌ カメラの起動に失敗しました（順位登録）");
+      });
+    }
+  } else {           /* --- “QR スキャン” 画面へ戻る --- */
+    isRankingMode = false;
+    if (rankingQrReader) {
+      rankingQrReader.stop().then(() => {
+        rankingQrReader.clear();
+        rankingQrReader = null;
+      });
+    }
+  }
+}
+
+/** 座席 QR が読み取られたらドラッグ可能な一覧を生成 */
+function handleRankingMode(tableCode) {
+  if (!isRankingMode) return;
+  rankingSeatId = tableCode;
+
+  const list    = document.getElementById("rankingList");
+  list.innerHTML = "";
+  (seatMap[tableCode] || []).forEach(pid => {
+    const li = document.createElement("li");
+    li.textContent     = pid;
+    li.dataset.playerId = pid;
+    list.appendChild(li);
+  });
+
+  makeListDraggable(list);
+  displayMessage(`座席 ${tableCode} の順位を並び替えてください`);
+}
+
+/** HTML5 Drag & Drop で並び替えられる <ul> を作る */
+function makeListDraggable(ul) {
+  let dragging = null;
+
+  ul.querySelectorAll("li").forEach(li => {
+    li.draggable = true;
+
+    li.ondragstart = () => { dragging = li; li.classList.add("dragging"); };
+    li.ondragend   = () => { dragging = null; li.classList.remove("dragging"); };
+
+    li.ondragover  = e => {
+      e.preventDefault();
+      const tgt = e.target;
+      if (tgt && tgt !== dragging && tgt.nodeName === "LI") {
+        const r   = tgt.getBoundingClientRect();
+        const aft = (e.clientY - r.top) > r.height / 2;
+        tgt.parentNode.insertBefore(dragging, aft ? tgt.nextSibling : tgt);
+      }
+    };
+  });
+}
+
+/** 「順位決定」ボタン */
+function confirmRanking() {
+  if (!rankingSeatId) return;
+
+  // li 順で ID を抽出
+  const ordered = Array.from(document.querySelectorAll("#rankingList li"))
+                    .map(li => li.dataset.playerId);
+
+  ordered.forEach((pid, idx) => {
+    if (playerData[pid]) playerData[pid].lastRank = idx + 1;
+  });
+
+  calculateRate(ordered);
+  displayMessage("✅ 順位を保存しました");
+  saveToLocalStorage();
+}
+
+/* ---------- レート計算まわり ---------- */
+function calculateRate(rankedIds) {
+  rankedIds.forEach((pid, i) => {
+    const p        = playerData[pid];
+    const prevRank = p.lastRank ?? rankedIds.length;
+    let diff       = prevRank - (i + 1);          // ↑なら正
+
+    // 基本ポイント
+    let point = diff * 2;
+
+    // 特殊ルール
+    if (prevRank === 1 && i === rankedIds.length - 1) point = -8;
+    if (prevRank === rankedIds.length && i === 0)      point =  8;
+
+    // 高レート補正
+    if (p.rate >= 80) point = Math.floor(point * 0.8);
+
+    // 王座奪取ボーナス
+    const topId = getTopRatedPlayerId();
+    if (topId && p.rate <= playerData[topId].rate && i + 1 < playerData[topId].lastRank)
+      point += 2;
+
+    p.bonus = point;
+    p.rate  = Math.max(30, p.rate + point);
+  });
+
+  assignTitles();
+}
+
+/** 称号を付与（👑🥈🥉） */
+function assignTitles() {
+  Object.values(playerData).forEach(p => (p.title = null));      // 一旦クリア
+  Object.entries(playerData)
+        .sort((a,b) => b[1].rate - a[1].rate)
+        .slice(0,3)                                              // 上位 3 人
+        .forEach(([pid], idx) => {
+          playerData[pid].title = ["👑 王者", "🥈 挑戦者", "🥉 鬼気迫る者"][idx];
+        });
+}
+
+/* ======================================================
+ *  Google Drive 連携 & CSV 出力
+ * ==================================================== */
+async function loadJson() {
+  const res = await fetch(`${ENDPOINT}?action=get`, { cache:"no-store" });
+  const j   = await res.json();
+  if (j.error) throw j.error;
+  return j;
+}
+
+async function saveJson(nextData, baseRev, sig, retry = 3) {
+  try {
+    const body = { data: nextData, rev: baseRev, sig };
+    const res  = await fetch(ENDPOINT, {
+      method : "POST",
+      headers: { "Content-Type":"application/json" },
+      body   : JSON.stringify(body)
+    });
+    const j = await res.json();
+    if (j.error) throw j.error;
+    return j;
+  } catch (e) {
+    if (e === "conflict" && retry) {
+      await delay(200 * (4 - retry));
+      const latest = await loadJson();
+      return saveJson(nextData, latest.rev, latest.sig, retry - 1);
+    }
+    throw e;
+  }
+}
+
+async function makeSig(data) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(SECRET),
+    { name:"HMAC", hash:"SHA-256" },
+    false, ["sign"]
+  );
+  const mac = await crypto.subtle.sign("HMAC", key,
+                new TextEncoder().encode(JSON.stringify(data)));
+  return btoa(String.fromCharCode(...new Uint8Array(mac)));
+}
+
+/* --- Drive から取得して画面に反映 --- */
+async function refresh() {
+  try {
+    const { data } = await loadJson();
+    seatMap    = data.seatMap    || {};
+    playerData = data.playerData || {};
+    renderSeats();
+    displayMessage("☁ データ読み込み成功");
+  } catch (e) {
+    console.error(e);
+    displayMessage("❌ 読み込み失敗");
+  }
+}
+
+/* --- Drive へ保存 --- */
+async function store() {
+  try {
+    const next = { seatMap, playerData };
+    const sig  = await makeSig(next);
+    await saveJson(next, 0, sig);
+    displayMessage("✅ データ保存成功");
+  } catch (e) {
+    console.error(e);
+    displayMessage("❌ 保存失敗");
+  }
+}
+
+/* --- CSV でダウンロード --- */
+function saveToCSV() {
+  const rows = [["ID","ニックネーム","レート","前回順位","ボーナス","称号"]];
+  for (const id in playerData) {
+    const p = playerData[id];
+    rows.push([id, p.nickname, p.rate, p.lastRank ?? "", p.bonus ?? 0, p.title ?? ""]);
+  }
+
+  const blob = new Blob([rows.map(r => r.join(",")).join("\n")], { type:"text/csv" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href = url;
+  a.download = "player_ranking.csv";
+  a.click();
+}
+
+/* ======== 初期化 ======== */
+document.addEventListener("DOMContentLoaded", () => {
+  initCamera();
+  loadFromLocalStorage();
+  renderSeats();
+  /* ボタンへのイベント付与など既存の bindButtons() を呼び出す */
+  bindButtons();
+});
+
+/* ======== window 公開 ======== */
+Object.assign(window, {
+  navigate,
+  navigateToExternal: url => window.open(url, "_blank"),
+  undoAction,
+  saveToCSV,
+  confirmRanking,
+  removePlayer
+});
