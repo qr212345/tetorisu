@@ -3,7 +3,7 @@
  **********************/
 
 /* ======== 依存ライブラリ ======== */
-import { Html5Qrcode, Html5QrcodeScannerState } from
+import { Html5Qrcode } from
   "https://unpkg.com/html5-qrcode@2.3.8?module";
 
 /* ======== 定数 ======== */
@@ -17,7 +17,8 @@ let seatMap         = {};      // { table01: [player01, …] }
 let playerData      = {};      // { playerId: {rate,…} }
 let actionHistory   = [];
 
-let qrReader        = null;    // ← ここでグローバル保持して二重起動防止
+let qrReader;
+let qrActive = false;         // ← グローバル保持して二重起動防止
 let rankingQrReader = null;
 
 let isRankingMode   = false;
@@ -68,11 +69,10 @@ function handleScanSuccess(decodedText) {
 /* ======== カメラ起動 ======== */
 function initCamera() {
   // 既にスキャン中なら再起動しない
-  if (qrReader?.getState?.() === Html5QrcodeScannerState.SCANNING) {
-    console.log("QR リーダーは既に起動中です");
+  if (qrActive) {
+    console.log("QR リーダーはすでに起動中です");
     return;
   }
-
   // インスタンス未生成なら作成
   if (!qrReader) qrReader = new Html5Qrcode("reader");
 
@@ -80,7 +80,9 @@ function initCamera() {
     { facingMode: "environment" },
     { fps: 10, qrbox: 250 },
     handleScanSuccess
-  ).catch(err => {
+  ).then(() => {
+    qrActive = true;  // 起動成功したらフラグを立てる
+  }).catch(err => {
     console.error(err);
     displayMessage("❌ カメラの起動に失敗しました");
   });
@@ -167,7 +169,6 @@ function loadFromLocalStorage() {
   seatMap    = JSON.parse(localStorage.getItem("seatMap")    || "{}");
   playerData = JSON.parse(localStorage.getItem("playerData") || "{}");
 }
-
 /* ======================================================
  *  画面遷移 & 順位登録     ―  “ランキング” サブ画面の実装
  * ==================================================== */
@@ -216,6 +217,7 @@ function navigate(section) {
         rankingQrReader = null;
       });
     }
+    if (!qrActive && section === "scan") initCamera();
   }
 }
 
@@ -314,6 +316,18 @@ function assignTitles() {
         .forEach(([pid], idx) => {
           playerData[pid].title = ["👑 王者", "🥈 挑戦者", "🥉 鬼気迫る者"][idx];
         });
+}
+
+function getTopRatedPlayerId() {
+  let topId = null;
+  let topRate = -Infinity;
+  for (const [pid, pdata] of Object.entries(playerData)) {
+    if (pdata.rate > topRate) {
+      topRate = pdata.rate;
+      topId = pid;
+    }
+  }
+  return topId;
 }
 
 /* ======================================================
@@ -420,3 +434,7 @@ Object.assign(window, {
   confirmRanking,
   removePlayer
 });
+
+function bindButtons() {
+  // ボタンにイベントを設定する処理をここに書くか、空のままにしておく
+}
