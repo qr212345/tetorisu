@@ -3,8 +3,7 @@
  **********************/
 
 /* ======== 依存ライブラリ ======== */
-import { Html5Qrcode } from
-  "https://unpkg.com/html5-qrcode@2.3.8?module";
+let qrReader = new Html5Qrcode("reader");
 
 /* ======== 定数 ======== */
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbwckDY2AlG4ItnrqM-7-VkQ6tgPHMTwCZ0JjPW7MfPNWEYgzY3AHTiPn3uNEDQbnD-R/exec";
