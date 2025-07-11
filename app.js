@@ -1,10 +1,7 @@
 /**********************
  *  ババ抜き大会管理  *
  **********************/
-
-/* ======== 依存ライブラリ ======== */
-let qrReader = new Html5Qrcode("reader");
-
+let qrReader;
 /* ======== 定数 ======== */
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbwckDY2AlG4ItnrqM-7-VkQ6tgPHMTwCZ0JjPW7MfPNWEYgzY3AHTiPn3uNEDQbnD-R/exec";
 const SECRET   = "kosen-brain-super-secret";
@@ -16,7 +13,6 @@ let seatMap         = {};      // { table01: [player01, …] }
 let playerData      = {};      // { playerId: {rate,…} }
 let actionHistory   = [];
 
-let qrReader;
 let qrActive = false;         // ← グローバル保持して二重起動防止
 let rankingQrReader = null;
 
