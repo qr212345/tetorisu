@@ -400,10 +400,6 @@ async function store() {
   }
 }
 
-function bindButtons() {
-  // ボタンにイベントを設定する処理をここに書くか、空のままにしておく
-}
-
 /* --- CSV でダウンロード --- */
 function saveToCSV() {
   const rows = [["ID","ニックネーム","レート","前回順位","ボーナス","称号"]];
@@ -420,14 +416,7 @@ function saveToCSV() {
   a.click();
 }
 
-/* ======== 初期化 ======== */
-document.addEventListener("DOMContentLoaded", () => {
-  initCamera();
-  loadFromLocalStorage();
-  renderSeats();
-  /* ボタンへのイベント付与など既存の bindButtons() を呼び出す */
-
-bindButtons() {
+function bindButtons() {
   document.getElementById("btnUndo")?.addEventListener("click", undoAction);
   document.getElementById("btnSaveCSV")?.addEventListener("click", saveToCSV);
   document.getElementById("btnConfirmRanking")?.addEventListener("click", confirmRanking);
@@ -441,6 +430,15 @@ bindButtons() {
   document.getElementById("btnLoad")
           ?.addEventListener("click", refresh);
 }
+
+/* ======== 初期化 ======== */
+document.addEventListener("DOMContentLoaded", () => {
+  initCamera();
+  loadFromLocalStorage();
+  renderSeats();
+  bindButtons();
+  /* ボタンへのイベント付与など既存の bindButtons() を呼び出す */
+});
 
 /* ======== window 公開 ======== */
 Object.assign(window, {
