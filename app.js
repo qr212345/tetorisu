@@ -201,10 +201,10 @@ function navigate(section) {
             displayMessage("⚠ 座席コードのみ読み取り可能です");
           }
         }
-      ).catch (err) {
+      ).catch(err => {
         console.error(err);
         displayMessage("❌ カメラの起動に失敗しました（順位登録）");
-      };
+       });
     }
   } else {           /* --- “QR スキャン” 画面へ戻る --- */
     isRankingMode = false;
