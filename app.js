@@ -338,7 +338,7 @@ function displayMessage(msg) {
 // JSONデータをサーバーから取得
 async function loadJson() {
   try {
-    const url = `${ENDPOINT}?fileId=${encodeURIComponent(FILE_ID)}`;
+    const url = `${ENDPOINT}`;
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
     const json = await res.json();
