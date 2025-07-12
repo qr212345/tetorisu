@@ -3,6 +3,7 @@
  **********************/
 let qrReader;
 /* ======== 定数 ======== */
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbz0Z2OQbQkA-yt8LG_NiDwjXJGvClBxx-aJ6cy8sqBZnHqhq4u_HHg1kL8-xlnYqgY/exec";
 const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
 const SECRET   = "kosen-brain-super-secret";
