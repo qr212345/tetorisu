@@ -69,6 +69,7 @@ function initCamera() {
     console.log("QR リーダーはすでに起動中です");
     return;
   }
+
   // インスタンス未生成なら作成
   if (!qrReader) qrReader = new Html5Qrcode("reader");
 
@@ -78,10 +79,10 @@ function initCamera() {
     handleScanSuccess
   ).then(() => {
     qrActive = true;  // 起動成功したらフラグを立てる
-  }).catch (err) {
+  }).catch(err => {
     console.error(err);
     displayMessage("❌ カメラの起動に失敗しました");
-  };
+  });
 }
 
 /* ======== 座席表示 ======== */
