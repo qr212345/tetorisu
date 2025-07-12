@@ -3,7 +3,7 @@
  **********************/
 let qrReader;
 /* ======== 定数 ======== */
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbwckDY2AlG4ItnrqM-7-VkQ6tgPHMTwCZ0JjPW7MfPNWEYgzY3AHTiPn3uNEDQbnD-R/exec";
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbwiNyNi91Y9XTP7vKtgbOzrZOUrzftjDrGYdHshDCLxYHzSXEh85J02fec4McmTeQ0/exec";
 const SECRET   = "kosen-brain-super-secret";
 const SCAN_COOLDOWN_MS = 1500;
 
@@ -328,72 +328,81 @@ function getTopRatedPlayerId() {
 /* ======================================================
  *  Google Drive 連携 & CSV 出力
  * ==================================================== */
+const ENDPOINT = 'https://script.google.com/macros/s/AKfycbyM3sVpfNaCTdTGf-0h4pyhrfJa9glPmwjM2VgVjCqSPhNqjqEMtx_Yna2RQ5N54Yo/exec';
+const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
+
+// 画面表示用（例）
+function displayMessage(msg) {
+  const el = document.getElementById('message');
+  if (el) el.textContent = msg;
+}
+
+// JSONデータをサーバーから取得
 async function loadJson() {
-  const res = await fetch(`${ENDPOINT}?action=get`, { cache:"no-store" });
-  const j   = await res.json();
-  if (j.error) throw j.error;
-  return j;
+  try {
+    const url = `${ENDPOINT}?fileId=${encodeURIComponent(FILE_ID)}`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    displayMessage('データ読み込み成功');
+    return json;
+  } catch (e) {
+    displayMessage(`読み込み失敗: ${e.message}`);
+    console.error(e);
+  }
 }
 
-async function saveJson(nextData, baseRev, sig, retry = 3) {
+// JSONデータをサーバーへ保存
+async function saveJson(data, rev = 0) {
   try {
-    const body = { data: nextData, rev: baseRev, sig };
-    const res  = await fetch(ENDPOINT, {
-      method : "POST",
-      headers: { "Content-Type":"application/json" },
-      body   : JSON.stringify(body)
+    const body = {
+      data: data,
+      rev: rev
+    };
+    const url = `${ENDPOINT}?fileId=${encodeURIComponent(FILE_ID)}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
-    const j = await res.json();
-    if (j.error) throw j.error;
-    return j;
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+    displayMessage('データ保存成功');
+    return json;
   } catch (e) {
-    if (e === "conflict" && retry) {
-      await delay(200 * (4 - retry));
-      const latest = await loadJson();
-      return saveJson(nextData, latest.rev, latest.sig, retry - 1);
-    }
-    throw e;
-  }
-}
-
-async function makeSig(data) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(SECRET),
-    { name:"HMAC", hash:"SHA-256" },
-    false, ["sign"]
-  );
-  const mac = await crypto.subtle.sign("HMAC", key,
-                new TextEncoder().encode(JSON.stringify(data)));
-  return btoa(String.fromCharCode(...new Uint8Array(mac)));
-}
-
-/* --- Drive から取得して画面に反映 --- */
-async function refresh() {
-  try {
-    const { data } = await loadJson();
-    seatMap    = data.seatMap    || {};
-    playerData = data.playerData || {};
-    renderSeats();
-    displayMessage("☁ データ読み込み成功");
-  } catch (e) {
+    displayMessage(`保存失敗: ${e.message}`);
     console.error(e);
-    displayMessage("❌ 読み込み失敗");
   }
 }
 
-/* --- Drive へ保存 --- */
-async function store() {
-  try {
-    const next = { seatMap, playerData };
-    const sig  = await makeSig(next);
-    await saveJson(next, 0, sig);
-    displayMessage("✅ データ保存成功");
-  } catch (e) {
-    console.error(e);
-    displayMessage("❌ 保存失敗");
+// 例: ページ読み込み時にデータを読み込み表示
+window.addEventListener('DOMContentLoaded', async () => {
+  const loaded = await loadJson();
+  if (loaded && loaded.data) {
+    console.log('取得データ:', loaded.data);
+    // ここで画面に表示したり状態に反映したりする処理を書く
   }
-}
+});
+
+// 例: ボタン押下時に現在の状態を保存する処理
+document.getElementById('saveButton').addEventListener('click', async () => {
+  // 例として簡単なデータを作成
+  const dataToSave = {
+    foo: 'bar',
+    timestamp: Date.now()
+  };
+  
+  // まず現在のrevを取得
+  const current = await loadJson();
+  if (!current) return;
+  
+  const rev = current.rev || 0;
+  const result = await saveJson(dataToSave, rev);
+  console.log('保存結果:', result);
+});
+
 
 /* --- CSV でダウンロード --- */
 function saveToCSV() {
