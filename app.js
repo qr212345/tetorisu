@@ -79,7 +79,7 @@ function initCamera() {
   ).then(() => {
     qrActive = true;  // 起動成功したらフラグを立てる
   }).catch(err => {
-    console.error(err);
+    console.error(e);
     displayMessage("❌ カメラの起動に失敗しました");
   });
 }
