@@ -78,10 +78,10 @@ function initCamera() {
     handleScanSuccess
   ).then(() => {
     qrActive = true;  // 起動成功したらフラグを立てる
-  }).catch(err => {
-    console.error(e);
+  }).catch (err) {
+    console.error(err);
     displayMessage("❌ カメラの起動に失敗しました");
-  });
+  })-;
 }
 
 /* ======== 座席表示 ======== */
@@ -200,10 +200,10 @@ function navigate(section) {
             displayMessage("⚠ 座席コードのみ読み取り可能です");
           }
         }
-      ).catch(err => {
-        console.error(e);
+      ).catch (err) {
+        console.error(err);
         displayMessage("❌ カメラの起動に失敗しました（順位登録）");
-      });
+      };
     }
   } else {           /* --- “QR スキャン” 画面へ戻る --- */
     isRankingMode = false;
