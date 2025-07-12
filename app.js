@@ -201,7 +201,7 @@ function navigate(section) {
           }
         }
       ).catch(err => {
-        console.error(err);
+        console.error(e);
         displayMessage("❌ カメラの起動に失敗しました（順位登録）");
       });
     }
