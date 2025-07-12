@@ -358,7 +358,7 @@ async function saveJson(data, rev = 0) {
       data: data,
       rev: rev
     };
-    const url = `${ENDPOINT}?fileId=${encodeURIComponent(FILE_ID)}`;
+    const url = `${ENDPOINT}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
