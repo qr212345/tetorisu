@@ -3,7 +3,8 @@
  **********************/
 let qrReader;
 /* ======== 定数 ======== */
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbwiNyNi91Y9XTP7vKtgbOzrZOUrzftjDrGYdHshDCLxYHzSXEh85J02fec4McmTeQ0/exec";
+const ENDPOINT = " https://script.google.com/macros/s/AKfycbyM3sVpfNaCTdTGf-0h4pyhrfJa9glPmwjM2VgVjCqSPhNqjqEMtx_Yna2RQ5N54Yo/exec";
+const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
 const SECRET   = "kosen-brain-super-secret";
 const SCAN_COOLDOWN_MS = 1500;
 
@@ -328,9 +329,6 @@ function getTopRatedPlayerId() {
 /* ======================================================
  *  Google Drive 連携 & CSV 出力
  * ==================================================== */
-const ENDPOINT = 'https://script.google.com/macros/s/AKfycbyM3sVpfNaCTdTGf-0h4pyhrfJa9glPmwjM2VgVjCqSPhNqjqEMtx_Yna2RQ5N54Yo/exec';
-const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
-
 // 画面表示用（例）
 function displayMessage(msg) {
   const el = document.getElementById('message');
