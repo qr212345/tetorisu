@@ -81,7 +81,7 @@ function initCamera() {
   }).catch (err) {
     console.error(err);
     displayMessage("❌ カメラの起動に失敗しました");
-  })-;
+  };
 }
 
 /* ======== 座席表示 ======== */
