@@ -385,7 +385,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // 例: ボタン押下時に現在の状態を保存する処理
-document.getElementById('saveButton').addEventListener('click', async () => {
+document.getElementById('btnSave').addEventListener('click', async () => {
   // 例として簡単なデータを作成
   const dataToSave = {
     foo: 'bar',
