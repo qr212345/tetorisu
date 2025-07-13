@@ -3,7 +3,7 @@
  **********************/
 let qrReader;
 /* ======== 定数 ======== */
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbwxqbU0JsC4q2WMFXcpgF4XA8ND-qSIo3w5Cq84f68_vdMSn4akd5JdTBs2yCeIsGM/exec";
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbxAPyn9IPW0PiaQeZL0XcBMZF29rDXfq5BVWqT3ZfHeDofhF6Xtd6ZmaEeI_JaVyHY/exec";
 const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
 const SECRET   = "kosen-brain-super-secret";
 const SCAN_COOLDOWN_MS = 1500;
