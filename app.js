@@ -5,7 +5,7 @@ let qrReader;
 /* ======== 定数 ======== */
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbyCXpQK2i46P7vl2JSErJhPqivwAVV6066nCSOsvSXjQq1M0DvpCL9qlJ0N26c8VxQ/exec";
 const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
-const SECRET   = "kosen-brain-super-secret";
+const ALLOW_ORIGIN = 'rew';
 const SCAN_COOLDOWN_MS = 1500;
 const POLL_INTERVAL_MS = 20_000;   // 20秒ごとに更新（好みで変更可）
 /* ======== グローバル状態 ======== */
@@ -336,9 +336,10 @@ function getTopRatedPlayerId() {
 async function loadJson() {
   try {
     const url = `${ENDPOINT}?fileId=${encodeURIComponent(FILE_ID)}`;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, {cache: `no-store`});
     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    const json = await res.json();
+    const text = await res.text();
+    const json = JSON.parse(text)
     if (json.error) throw new Error(json.error);
     displayMessage('データ読み込み成功');
     return json;  // { rev, data: { seatMap, playerData } }
@@ -356,13 +357,14 @@ async function saveJson(data, rev = 0) {
       rev: rev
     };
     const url = `${ENDPOINT}?fileId=${encodeURIComponent(FILE_ID)}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+   const res  = await fetch(url, {
+      method : 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // ★ text/plain
+      body   : JSON.stringify({ data, rev })     //   文字列として送る
     });
     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    const json = await res.json();
+    const text = await res.text();               // ★
+    const json = JSON.parse(text);
     if (json.error) throw new Error(json.error);
     displayMessage('データ保存成功');
     return json;  // { ok: true, rev: newRev }
