@@ -7,7 +7,7 @@ const ENDPOINT = "https://script.google.com/macros/s/AKfycbz0Z2OQbQkA-yt8LG_NiDw
 const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
 const SECRET   = "kosen-brain-super-secret";
 const SCAN_COOLDOWN_MS = 1500;
-
+const POLL_INTERVAL_MS = 20_000;   // 20秒ごとに更新（好みで変更可）
 /* ======== グローバル状態 ======== */
 let currentSeatId   = null;
 let seatMap         = {};      // { table01: [player01, …] }
@@ -24,6 +24,8 @@ let lastScanTime    = 0;
 let lastScannedText = "";
 let msgTimer        = null;
 
+let pollTimer = null;
+let isSaving = false;
 /* ======== ユーティリティ ======== */
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
@@ -330,12 +332,6 @@ function getTopRatedPlayerId() {
 /* ======================================================
  *  Google Drive 連携 & CSV 出力
  * ==================================================== */
-// 画面表示用（例）
-function displayMessage(msg) {
-  const el = document.getElementById('message');
-  if (el) el.textContent = msg;
-}
-
 // JSONデータをサーバーから取得
 async function loadJson() {
   try {
@@ -377,31 +373,86 @@ async function saveJson(data, rev = 0) {
 }
 
 // 例: ページ読み込み時にデータを読み込み表示
-window.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  initCamera();
+  loadFromLocalStorage();
+  renderSeats();
+  bindButtons();
+
   const loaded = await loadJson();
   if (loaded && loaded.data) {
-    console.log('取得データ:', loaded.data);
-    // ここで画面に表示したり状態に反映したりする処理を書く
+    seatMap = loaded.data.seatMap || {};
+    playerData = loaded.data.playerData || {};
+    renderSeats();
+    displayMessage("✅ Google Drive データを復元しました");
   }
+
+  startPolling();
 });
 
-// 例: ボタン押下時に現在の状態を保存する処理
-document.getElementById('btnSave').addEventListener('click', async () => {
-  // 例として簡単なデータを作成
-  const dataToSave = {
-    foo: 'bar',
-    timestamp: Date.now()
-  };
-  
-  // まず現在のrevを取得
-  const current = await loadJson();
-  if (!current) return;
-  
-  const rev = current.rev || 0;
-  const result = await saveJson(dataToSave, rev);
-  console.log('保存結果:', result);
-});
+async function refresh() {
+  const loaded = await loadJson();
+  if (loaded && loaded.data) {
+    seatMap = loaded.data.seatMap || {};
+    playerData = loaded.data.playerData || {};
+    renderSeats();
+    displayMessage("✅ データを復元しました");
+  }
+}
+/** Drive をポーリングして UI を更新する */
+async function pollDrive() {
+  // ① 自分で保存中（store中）は無視したい場合はフラグを使う
+  if (isSaving) return;
 
+  const loaded = await loadJson();
+  if (!loaded || !loaded.data) return;
+
+  // ② 変化があるときだけ描画し直す
+  const newSeatMap    = loaded.data.seatMap    || {};
+  const newPlayerData = loaded.data.playerData || {};
+
+  const changed =
+      JSON.stringify(seatMap)    !== JSON.stringify(newSeatMap) ||
+      JSON.stringify(playerData) !== JSON.stringify(newPlayerData);
+
+  if (changed) {
+    seatMap    = newSeatMap;
+    playerData = newPlayerData;
+    renderSeats();
+    displayMessage('☁ 他端末の変更を反映しました');
+  }
+}
+
+/** ポーリング開始（ページロード後に呼ぶ） */
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollDrive, POLL_INTERVAL_MS);
+}
+
+/** 必要なら停止用も（例: 大会終了ボタンなどで呼ぶ） */
+function stopPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = null;
+}
+
+async function store() {
+  isSaving = true;  // ★ 追加：ポーリング一時停止
+  stopPolling();
+  
+  try {
+    const current = await loadJson();
+    if (!current) return;
+    const rev = current.rev || 0;
+    await saveJson({ seatMap, playerData }, rev);
+    displayMessage('✅ データ保存成功');
+  } catch(e) {
+    console.error(e);
+    displayMessage(`❌ 保存失敗: ${e.message}`);
+  } finally {
+    isSaving = false;
+    startPolling();  // ★ 追加：保存完了後に再開
+  }
+}
 
 /* --- CSV でダウンロード --- */
 function saveToCSV() {
@@ -434,15 +485,6 @@ function bindButtons() {
           ?.addEventListener("click", refresh);
 }
 
-/* ======== 初期化 ======== */
-document.addEventListener("DOMContentLoaded", () => {
-  initCamera();
-  loadFromLocalStorage();
-  renderSeats();
-  bindButtons();
-  /* ボタンへのイベント付与など既存の bindButtons() を呼び出す */
-});
-
 /* ======== window 公開 ======== */
 Object.assign(window, {
   navigate,
@@ -450,5 +492,6 @@ Object.assign(window, {
   undoAction,
   saveToCSV,
   confirmRanking,
-  removePlayer
+  removePlayer,
+  store
 });
