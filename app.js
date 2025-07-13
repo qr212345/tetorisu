@@ -3,7 +3,7 @@
  **********************/
 let qrReader;
 /* ======== 定数 ======== */
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbz0Z2OQbQkA-yt8LG_NiDwjXJGvClBxx-aJ6cy8sqBZnHqhq4u_HHg1kL8-xlnYqgY/exec";
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbwxqbU0JsC4q2WMFXcpgF4XA8ND-qSIo3w5Cq84f68_vdMSn4akd5JdTBs2yCeIsGM/exec";
 const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
 const SECRET   = "kosen-brain-super-secret";
 const SCAN_COOLDOWN_MS = 1500;
@@ -335,13 +335,13 @@ function getTopRatedPlayerId() {
 // JSONデータをサーバーから取得
 async function loadJson() {
   try {
-    const url = `${ENDPOINT}`;
+    const url = `${ENDPOINT}?fileId=${encodeURIComponent(FILE_ID)}`;
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
     const json = await res.json();
     if (json.error) throw new Error(json.error);
     displayMessage('データ読み込み成功');
-    return json;
+    return json;  // { rev, data: { seatMap, playerData } }
   } catch (e) {
     displayMessage(`読み込み失敗: ${e.message}`);
     console.error(e);
@@ -355,7 +355,7 @@ async function saveJson(data, rev = 0) {
       data: data,
       rev: rev
     };
-    const url = `${ENDPOINT}`;
+    const url = `${ENDPOINT}?fileId=${encodeURIComponent(FILE_ID)}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -365,7 +365,7 @@ async function saveJson(data, rev = 0) {
     const json = await res.json();
     if (json.error) throw new Error(json.error);
     displayMessage('データ保存成功');
-    return json;
+    return json;  // { ok: true, rev: newRev }
   } catch (e) {
     displayMessage(`保存失敗: ${e.message}`);
     console.error(e);
@@ -436,21 +436,28 @@ function stopPolling() {
 }
 
 async function store() {
-  isSaving = true;  // ★ 追加：ポーリング一時停止
+  isSaving = true;
   stopPolling();
-  
+
   try {
     const current = await loadJson();
-    if (!current) return;
+    if (!current) {
+      displayMessage("最新データ取得に失敗しました");
+      return;
+    }
     const rev = current.rev || 0;
-    await saveJson({ seatMap, playerData }, rev);
-    displayMessage('✅ データ保存成功');
-  } catch(e) {
-    console.error(e);
+
+    // 送信データは { seatMap, playerData }
+    const saveResult = await saveJson({ seatMap, playerData }, rev);
+    if (saveResult && saveResult.ok) {
+      displayMessage(`✅ データ保存成功（rev: ${saveResult.rev}）`);
+    }
+  } catch (e) {
     displayMessage(`❌ 保存失敗: ${e.message}`);
+    console.error(e);
   } finally {
     isSaving = false;
-    startPolling();  // ★ 追加：保存完了後に再開
+    startPolling();
   }
 }
 
