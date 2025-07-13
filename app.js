@@ -3,7 +3,7 @@
  **********************/
 let qrReader;
 /* ======== 定数 ======== */
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbz0Z2OQbQkA-yt8LG_NiDwjXJGvClBxx-aJ6cy8sqBZnHqhq4u_HHg1kL8-xlnYqgY/exec";
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbwH5j5sdwNz6NuGDc-PlA-4KsaY1Tlf8F9aVLcbf0GBK4V6QujpusGG_3M9KZMT_cM/exec";
 const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
 const SECRET   = "kosen-brain-super-secret";
 const SCAN_COOLDOWN_MS = 1500;
@@ -431,32 +431,8 @@ async function store() {
   }
 }
 
-// 例: ページ読み込み時にデータを読み込み表示
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await loadJson();
-  if (loaded && loaded.data) {
-    console.log('取得データ:', loaded.data);
-    // ここで画面に表示したり状態に反映したりする処理を書く
-  }
-});
-
 // 例: ボタン押下時に現在の状態を保存する処理
-document.getElementById('btnSave').addEventListener('click', async () => {
-  // 例として簡単なデータを作成
-  const dataToSave = {
-    foo: 'bar',
-    timestamp: Date.now()
-  };
-  
-  // まず現在のrevを取得
-  const current = await loadJson();
-  if (!current) return;
-  
-  const rev = current.rev || 0;
-  const result = await saveJson(dataToSave, rev);
-  console.log('保存結果:', result);
-});
-
+document.getElementById('btnSave')?.addEventListener('click', store);
 
 /* --- CSV でダウンロード --- */
 function saveToCSV() {
@@ -490,12 +466,27 @@ function bindButtons() {
 }
 
 /* ======== 初期化 ======== */
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  // 1. Google Drive からデータ読み込み
+  const loaded = await loadJson();
+
+  if (loaded && loaded.data) {
+    seatMap    = loaded.data.seatMap    || {};
+    playerData = loaded.data.playerData || {};
+    displayMessage("✅ Google Drive からデータを読み込みました");
+  } else {
+    // ローカルから代替読み込み
+    loadFromLocalStorage();
+    displayMessage("⚠ ローカルストレージから復元しました");
+  }
+
+  // 2. UI とボタン初期化
   initCamera();
-  loadFromLocalStorage();
   renderSeats();
   bindButtons();
-  /* ボタンへのイベント付与など既存の bindButtons() を呼び出す */
+
+  // 3. 定期ポーリング開始
+  startPolling();
 });
 
 /* ======== window 公開 ======== */
