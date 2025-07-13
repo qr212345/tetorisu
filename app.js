@@ -3,9 +3,9 @@
  **********************/
 let qrReader;
 /* ======== 定数 ======== */
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbyCXpQK2i46P7vl2JSErJhPqivwAVV6066nCSOsvSXjQq1M0DvpCL9qlJ0N26c8VxQ/exec";
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbxQ8MjKZLJVqW8oqpT2UTclqKNzkIrDYvFxdRLcP-FagdXWJjAhE1vUNHZo9siHAJ8/exec";
 const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
-const ALLOW_ORIGIN = 'rew';
+const SECRET   = "kosen-brain-super-secret";
 const SCAN_COOLDOWN_MS = 1500;
 const POLL_INTERVAL_MS = 20_000;   // 20秒ごとに更新（好みで変更可）
 /* ======== グローバル状態 ======== */
