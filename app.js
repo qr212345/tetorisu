@@ -3,11 +3,11 @@
  **********************/
 let qrReader;
 /* ======== 定数 ======== */
-const ENDPOINT = "https://script.google.com/macros/s/AKfycbywp64aPrdPC_W8tGeuugNQgAPf8xJ4ZvBORcF-6aHHiKlcl4RQPfuDsmBU0_eSe84/exec";
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbz0Z2OQbQkA-yt8LG_NiDwjXJGvClBxx-aJ6cy8sqBZnHqhq4u_HHg1kL8-xlnYqgY/exec";
 const FILE_ID = '1YGb-2yW2JTFtB4MqWnbkb9Ut_kNLsv2R';
 const SECRET   = "kosen-brain-super-secret";
 const SCAN_COOLDOWN_MS = 1500;
-const POLL_INTERVAL_MS = 20_000;   // 20秒ごとに更新（好みで変更可）
+const POLL_INTERVAL_MS = 20_000;
 /* ======== グローバル状態 ======== */
 let currentSeatId   = null;
 let seatMap         = {};      // { table01: [player01, …] }
@@ -335,14 +335,13 @@ function getTopRatedPlayerId() {
 // JSONデータをサーバーから取得
 async function loadJson() {
   try {
-    const url = `${ENDPOINT}?fileId=${encodeURIComponent(FILE_ID)}`;
-    const res = await fetch(url, {cache: `no-store`});
+    const url = `${ENDPOINT}`;
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    const text = await res.text();
-    const json = JSON.parse(text)
+    const json = await res.json();
     if (json.error) throw new Error(json.error);
     displayMessage('データ読み込み成功');
-    return json;  // { rev, data: { seatMap, playerData } }
+    return json;
   } catch (e) {
     displayMessage(`読み込み失敗: ${e.message}`);
     console.error(e);
@@ -356,60 +355,31 @@ async function saveJson(data, rev = 0) {
       data: data,
       rev: rev
     };
-    const url = `${ENDPOINT}?fileId=${encodeURIComponent(FILE_ID)}`;
-   const res  = await fetch(url, {
-      method : 'POST',
-      headers: { 'Content-Type': 'text/plain' }, // ★ text/plain
-      body   : JSON.stringify({ data, rev })     //   文字列として送る
+    const url = `${ENDPOINT}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
     if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-    const text = await res.text();               // ★
-    const json = JSON.parse(text);
+    const json = await res.json();
     if (json.error) throw new Error(json.error);
     displayMessage('データ保存成功');
-    return json;  // { ok: true, rev: newRev }
+    return json;
   } catch (e) {
     displayMessage(`保存失敗: ${e.message}`);
     console.error(e);
   }
 }
 
-// 例: ページ読み込み時にデータを読み込み表示
-document.addEventListener("DOMContentLoaded", async () => {
-  initCamera();
-  loadFromLocalStorage();
-  renderSeats();
-  bindButtons();
-
-  const loaded = await loadJson();
-  if (loaded && loaded.data) {
-    seatMap = loaded.data.seatMap || {};
-    playerData = loaded.data.playerData || {};
-    renderSeats();
-    displayMessage("✅ Google Drive データを復元しました");
-  }
-
-  startPolling();
-});
-
-async function refresh() {
-  const loaded = await loadJson();
-  if (loaded && loaded.data) {
-    seatMap = loaded.data.seatMap || {};
-    playerData = loaded.data.playerData || {};
-    renderSeats();
-    displayMessage("✅ データを復元しました");
-  }
-}
-/** Drive をポーリングして UI を更新する */
 async function pollDrive() {
-  // ① 自分で保存中（store中）は無視したい場合はフラグを使う
+  
   if (isSaving) return;
 
   const loaded = await loadJson();
   if (!loaded || !loaded.data) return;
 
-  // ② 変化があるときだけ描画し直す
+  
   const newSeatMap    = loaded.data.seatMap    || {};
   const newPlayerData = loaded.data.playerData || {};
 
@@ -425,13 +395,11 @@ async function pollDrive() {
   }
 }
 
-/** ポーリング開始（ページロード後に呼ぶ） */
 function startPolling() {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(pollDrive, POLL_INTERVAL_MS);
 }
 
-/** 必要なら停止用も（例: 大会終了ボタンなどで呼ぶ） */
 function stopPolling() {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = null;
@@ -462,6 +430,33 @@ async function store() {
     startPolling();
   }
 }
+
+// 例: ページ読み込み時にデータを読み込み表示
+window.addEventListener('DOMContentLoaded', async () => {
+  const loaded = await loadJson();
+  if (loaded && loaded.data) {
+    console.log('取得データ:', loaded.data);
+    // ここで画面に表示したり状態に反映したりする処理を書く
+  }
+});
+
+// 例: ボタン押下時に現在の状態を保存する処理
+document.getElementById('btnSave').addEventListener('click', async () => {
+  // 例として簡単なデータを作成
+  const dataToSave = {
+    foo: 'bar',
+    timestamp: Date.now()
+  };
+  
+  // まず現在のrevを取得
+  const current = await loadJson();
+  if (!current) return;
+  
+  const rev = current.rev || 0;
+  const result = await saveJson(dataToSave, rev);
+  console.log('保存結果:', result);
+});
+
 
 /* --- CSV でダウンロード --- */
 function saveToCSV() {
@@ -494,6 +489,15 @@ function bindButtons() {
           ?.addEventListener("click", refresh);
 }
 
+/* ======== 初期化 ======== */
+document.addEventListener("DOMContentLoaded", () => {
+  initCamera();
+  loadFromLocalStorage();
+  renderSeats();
+  bindButtons();
+  /* ボタンへのイベント付与など既存の bindButtons() を呼び出す */
+});
+
 /* ======== window 公開 ======== */
 Object.assign(window, {
   navigate,
@@ -501,6 +505,5 @@ Object.assign(window, {
   undoAction,
   saveToCSV,
   confirmRanking,
-  removePlayer,
-  store
+  removePlayer
 });
