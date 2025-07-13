@@ -449,6 +449,18 @@ function saveToCSV() {
   a.download = "player_ranking.csv";
   a.click();
 }
+// Drive から読み込み
+async function refresh() {
+  const loaded = await loadJson();
+  if (!loaded || !loaded.data) {
+    displayMessage("❌ 更新に失敗しました");
+    return;
+  }
+  seatMap    = loaded.data.seatMap    || {};
+  playerData = loaded.data.playerData || {};
+  renderSeats();
+  displayMessage("🔄 最新データを読み込みました");
+}
 
 function bindButtons() {
   document.getElementById("btnUndo")?.addEventListener("click", undoAction);
@@ -456,15 +468,13 @@ function bindButtons() {
   document.getElementById("btnConfirmRanking")?.addEventListener("click", confirmRanking);
   document.getElementById("btnRefresh")?.addEventListener("click", refresh);
   document.getElementById("btnStore")?.addEventListener("click", store);
-    // Drive へ保存
+ 
   document.getElementById("btnSave")
           ?.addEventListener("click", store);
 
-  // Drive から読み込み
   document.getElementById("btnLoad")
           ?.addEventListener("click", refresh);
 }
-
 /* ======== 初期化 ======== */
 document.addEventListener("DOMContentLoaded", async () => {
   // 1. Google Drive からデータ読み込み
