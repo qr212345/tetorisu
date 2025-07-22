@@ -328,15 +328,6 @@ function getTopRatedPlayerId() {
   return topId;
 }
 
-/* ======================================================
- *  Google Drive 連携 & CSV 出力
- * ==================================================== */
-// 画面表示用（例）
-function displayMessage(msg) {
-  const el = document.getElementById('message');
-  if (el) el.textContent = msg;
-}
-
 // JSONデータをサーバーから取得
 async function loadJson() {
   try {
